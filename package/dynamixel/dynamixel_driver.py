@@ -26,8 +26,8 @@ class DynamixelDriver():
         
         ## Dynamixel Connect
         # DXL1 (Pitch)
-        # dxl_comm_result, dxl_error = packetHandler.write1ByteTxRx(portHandler, DXL_YAW_ID, ADDR_MX_TORQUE_ENABLE, TORQUE_ENABLE)
-        dxl_comm_result, dxl_error = self.packetHandler.write1ByteTxRx(self.portHandler, DXL_YAW_ID, ADDR_MX_TORQUE_ENABLE, TORQUE_DISABLE)
+        # dxl_comm_result, dxl_error = packetHandler.write1ByteTxRx(portHandler, DXL_PAN_ID, ADDR_MX_TORQUE_ENABLE, TORQUE_ENABLE)
+        dxl_comm_result, dxl_error = self.packetHandler.write1ByteTxRx(self.portHandler, DXL_PAN_ID, ADDR_MX_TORQUE_ENABLE, TORQUE_DISABLE)
         if dxl_comm_result != COMM_SUCCESS:
             print("%s" % self.packetHandler.getTxRxResult(dxl_comm_result))
         elif dxl_error != 0:
@@ -35,8 +35,8 @@ class DynamixelDriver():
         else:
             print("Dynamixel1 Connect Success!")
         # DXL2 (Yaw)
-        # dxl_comm_result, dxl_error = packetHandler.write1ByteTxRx(portHandler, DXL_PIT_ID, ADDR_MX_TORQUE_ENABLE, TORQUE_ENABLE)
-        dxl_comm_result, dxl_error = self.packetHandler.write1ByteTxRx(self.portHandler, DXL_PIT_ID, ADDR_MX_TORQUE_ENABLE, TORQUE_DISABLE)
+        # dxl_comm_result, dxl_error = packetHandler.write1ByteTxRx(portHandler, DXL_TLT_ID, ADDR_MX_TORQUE_ENABLE, TORQUE_ENABLE)
+        dxl_comm_result, dxl_error = self.packetHandler.write1ByteTxRx(self.portHandler, DXL_TLT_ID, ADDR_MX_TORQUE_ENABLE, TORQUE_DISABLE)
         if dxl_comm_result != COMM_SUCCESS:
             print("%s" % self.packetHandler.getTxRxResult(dxl_comm_result))
         elif dxl_error != 0:
@@ -81,13 +81,13 @@ class DynamixelDriver():
         self.packetHandler.write2ByteTxRx(self.portHandler, dxl_id, ADDR_MX_GOAL_POSITION, tar_stp)
 
     def dxl_multi_get_pos(self):
-        dxl_pit_cur_pos = self.dxl_get_pos(DXL_PIT_ID)
-        dxl_yaw_cur_pos = self.dxl_get_pos(DXL_YAW_ID)
-        return dxl_pit_cur_pos, dxl_yaw_cur_pos
+        dxl_tlt_cur_pos = self.dxl_get_pos(DXL_TLT_ID)
+        dxl_pan_cur_pos = self.dxl_get_pos(DXL_PAN_ID)
+        return dxl_tlt_cur_pos, dxl_pan_cur_pos
 
     def dxl_multi_get_spd(self, sign):
-        dxl_pit_cur_spd = self.dxl_get_spd(DXL_PIT_ID)
-        dxl_yaw_cur_spd = self.dxl_get_spd(DXL_YAW_ID)
+        dxl_pit_cur_spd = self.dxl_get_spd(DXL_TLT_ID)
+        dxl_yaw_cur_spd = self.dxl_get_spd(DXL_PAN_ID)
 
         # Unit Conversion: dynamixelStep => deg/s
         dxl_pit_spd = (dxl_pit_cur_spd & 0x3FF) * RPMCONSTANT
@@ -102,8 +102,8 @@ class DynamixelDriver():
         return dxl_pit_spd, dxl_yaw_spd
     
     def dxl_multi_get_spd_rev2(self):
-        dxl_pit_cur_spd = self.dxl_get_spd(DXL_PIT_ID)
-        dxl_yaw_cur_spd = self.dxl_get_spd(DXL_YAW_ID)
+        dxl_pit_cur_spd = self.dxl_get_spd(DXL_TLT_ID)
+        dxl_yaw_cur_spd = self.dxl_get_spd(DXL_PAN_ID)
 
         # Unit Conversion: dynamixelStep => deg/s
         dxl_pit_spd = (dxl_pit_cur_spd & 0x3FF) * RPMCONSTANT
@@ -121,9 +121,9 @@ class DynamixelDriver():
         flg = 0
         dxl_yaw_pos, dxl_pit_pos = self.dxl_multi_get_pos()
         if (dxl_yaw_pos < MIN_YAW_POSITION) or (dxl_yaw_pos > MAX_YAW_POSITION):
-            flg = DXL_YAW_ID
+            flg = DXL_PAN_ID
         if (dxl_pit_pos < MIN_PIT_POSITION) or (dxl_pit_pos > MAX_PIT_POSITION):
-            flg = DXL_PIT_ID
+            flg = DXL_TLT_ID
         return flg
 
     def dxl_stp2deg(self, stp_pit, stp_yaw):
@@ -145,11 +145,11 @@ class DynamixelDriver():
     def dxl_print_pose(self, dxl_pit_pos, dxl_yaw_pos):
         pit_deg, yaw_deg = self.dxl_stp2deg(dxl_pit_pos, dxl_yaw_pos)
         os.system('clear')
-        if self.dxl_minmax() == DXL_YAW_ID:
+        if self.dxl_minmax() == DXL_PAN_ID:
             print("Yaw   - CurPos: OUT OF RANGE!")
         else:
             print("Yaw   - CurPos:%03f" % yaw_deg)
-        if self.dxl_minmax() == DXL_PIT_ID:
+        if self.dxl_minmax() == DXL_TLT_ID:
             print("Pitch - CurPos: OUT OF RANGE!")
         else:
             print("Pitch - CurPos:%03f" % pit_deg)

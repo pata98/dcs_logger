@@ -1,6 +1,10 @@
-#### ToFPos Model Dataset JSON file IO
+##################################################################
+# iLidar ToF Motion Blur DCS Dataset JSON file IO
 # Author: Jiho Ryoo
-# Date  : 2023.08.28
+# Date: 2024.06.19
+# Description: Save dataset as JSON file
+# 
+##################################################################
 import json
 import jsbeautifier
 
@@ -15,7 +19,7 @@ class DatasetIO(object):
         return data
 
     # Write new json file to
-    def JSON_write(file_path, width, height, pose, depth_data, intensity_data, info): 
+    def JSON_write(file_path, width, height, pose, dcs0, dcs1, dcs2, dcs3, info): 
         image_dataset = dict()
 
         image_dataset["info"]   = info
@@ -23,8 +27,10 @@ class DatasetIO(object):
         image_dataset["height"] = height
         image_dataset["pose"]   = pose
 
-        image_dataset["depth_data"] = depth_data
-        image_dataset["inten_data"] = intensity_data
+        image_dataset["dcs0"] = dcs0
+        image_dataset["dcs1"] = dcs1
+        image_dataset["dcs2"] = dcs2
+        image_dataset["dcs3"] = dcs3
 
         with open(file_path, 'w', encoding='utf-8') as file:
             json.dump(image_dataset, file, indent="\t")

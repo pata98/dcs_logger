@@ -20,12 +20,12 @@ class iLidarDriver():
         self.img_width   = 320
         self.img_height  = 160
         # self.img_height  = 128
-        self.packet_size = 1280
+        self.packet_size = 1302
         self.row_unpack_format = '<' + 'H' * self.img_width # '<': little endian, 'H': unsigned short
         
         # UDP connection
         self.ip_host   = '192.168.5.2'
-        self.ip_sensor = '192.168.5.73'
+        self.ip_sensor = '192.168.5.51'
         self.port_dat_host = 7256
         self.port_cmd_host = 7257
         self.port_cmd_snsr = 4906
@@ -67,6 +67,7 @@ class iLidarDriver():
         dcs1 = np.zeros((self.img_height, self.img_width), dtype=np.uint16)
         dcs2 = np.zeros((self.img_height, self.img_width), dtype=np.uint16)
         dcs3 = np.zeros((self.img_height, self.img_width), dtype=np.uint16)
+        dcs = [dcs0, dcs1, dcs2, dcs3]
 
         lv = np.array([0, 1, 2, 2, 3, 3, 3, 3])
 
@@ -82,10 +83,10 @@ class iLidarDriver():
             except:
                 # Connection Error
                 if isFailFlg == 0:
-                    return imgInten, imgDepth, self.img_width, self.img_height, 1
+                    return dcs, self.img_width, self.img_height, 1
                 # Not enough packet is received
                 else:
-                    return imgInten, imgDepth, self.img_width, self.img_height, 1
+                    return dcs, self.img_width, self.img_height, 1
                 
             
             # If received packet is data packet, ignore
@@ -130,5 +131,5 @@ class iLidarDriver():
                         # print('Fail - Bad image')
                         failFlg = 2
                     
-                    return imgDepth, imgInten, self.img_width, self.img_height, failFlg
+                    return dcs, self.img_width, self.img_height, failFlg
 

@@ -14,8 +14,8 @@ ADDR_MX_PRESENT_SPEED       = 38
 PROTOCOL_VERSION            = 1.0
 
 # Dynamixel Communication Setting
-DXL_PIT_ID  = 1
-DXL_YAW_ID  = 2
+DXL_TLT_ID  = 1
+DXL_PAN_ID  = 2
 BAUDRATE    = 57600
 # DEVICENAME  = '/dev/tty.usbserial-FT763JHN'    # Only for Mac
 DEVICENAME  = '/dev/ttyUSB0'    # For Linux - Check using ls /dev/tty*

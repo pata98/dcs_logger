@@ -10,6 +10,7 @@ import os
 import time
 import numpy as np
 import matplotlib.pyplot as plt
+import time
 # from tqdm import tqdm
 # Dynamixel
 from package.dynamixel.dynamixel_driver import *
@@ -24,48 +25,73 @@ from package.ilidar.ilidar_tof_driver import *
 
 
 def main():
-    #### OPERATION MODE SETTING VALUES ###############################
-    # Operation Mode
-    V   = 0
-    H   = 1
-    VH  = 2
-    ALL = 3
+    #### OPERATION MODE INPUT ########################################
+    ## Target angular velocity
+    ANG_VEL_MIN = -10
+    ANG_VEL_MAX = 10
+    ANG_VEL_MAX += 1
+    ANG_VEL_INT = 5
+    # Image size
+    WIDTH  = 320
+    HEIGHT = 160
+
+    ## Initialize iLidar Connection
+    ilidar = iLidarDriver()
+
+    ## Check Scene
+    while True:
+        # dcs, isFail = ilidar.iLidar_getImg()
+        isFail = 0
+        # show_iisFailmg(dcs, 2)
+
+        print("Is the scene ok? (y/n): ", end="")
+        cmd = input()
+        if cmd == 'y':
+            break
+        elif cmd == 'n':
+            print("Please check the scene and press enter to continue")
 
     ## SELECT OPERATION MODE AND VELOCITY HERE
     print('Operation Mode Selection:')
-    print('Chose Operation Mode: V, H, VH, ALL')
+    print('Chose Operation Mode: Singlen (S) or Multi (M): ', end="")
+    SINGLE  = 0
+    MULTI   = 1
     cmd_in = input()
-    if cmd_in == 'H' or cmd_in == 'h':
-        operation_mode = H
-    elif cmd_in == 'V' or cmd_in == 'v':
-        operation_mode = V
-    elif cmd_in == 'VH' or cmd_in == 'vh':
-        operation_mode = VH
-    elif cmd_in == 'all' or cmd_in == 'ALL':
-        operation_mode = ALL
-        
-    print('Dynamixel Velocity Selection:')
-    print('Type dynamixel velocity: (0,40]')
-    print('Pitch: ', end="")
-    pit_spd = int(input())
-    print('Yaw: ', end="")
-    yaw_spd = int(input())
-
-    if yaw_spd > 0:
-        SWEEPBACK_YAW   = 20
-    else:
-        SWEEPBACK_YAW   = -20
-    if pit_spd > 0:
-        SWEEPBACK_PIT   = 20
-    else:
-        SWEEPBACK_PIT   = -20
-
-    print("Where is dataset captured?")
+    if cmd_in == 'S' or cmd_in == 's':
+        operation_mode = SINGLE
+    elif cmd_in == 'M' or cmd_in == 'm':
+        operation_mode = MULTI
+    
+    ## DATASET CAPTURE PLACE
+    print("Where is dataset captured?: ", end="")
     place = input()
-    # Json
-    path = "/home/pata/dcs_logger/dataset/"
+
+    ## Initial file index
+    path = "/home/pata/dcs_logger/dataset"
+    while True:
+        file_list = os.listdir(path + '/')
+        file_count = len(file_list)
+        if '.DS_Store' in file_list:
+            dataset_idx = file_count - 1
+        else:
+            dataset_idx = file_count
+        print('Continue saving files from previous log? Current initial index is {} - y/n: '.format(dataset_idx), end="")
+        cmd = input()
+        if cmd == 'y':
+            break
+        elif cmd == 'n':
+            print('Type initial file index: ', end="")
+            dataset_idx = int(input())
+            print('File index start from {}'.format(dataset_idx))
+            break
+        else:
+            print("Wrong Input!")
+
+
+    #### INIRTIALIZE #################################################
+    ## Save data format - JSON
     information = dict()
-    information["Capture_time"] = datetime.datetime.now(timezone('Asia/Seoul')).strftime("%Y.%m.%d-%H:%M:%S")
+    information["time"] = datetime.datetime.now(timezone('Asia/Seoul')).strftime("%Y.%m.%d-%H:%M:%S")
     information["place"] = place
     pose = dict()
     pose["dx"] = 0  # Translation velocity vector
@@ -75,41 +101,10 @@ def main():
     pose["dt"] = 0
     pose["dr"] = 0
 
-    # Dataset index set
-    dataset_idx = 0
-    if operation_mode == V:
-        file_path = path + 'V/GT/'
-    elif operation_mode == H:
-        file_path = path + 'H/GT/'
-    elif operation_mode == VH:
-        file_path = path + 'VH/GT/'
-            
-    file_list = os.listdir(file_path)
-    file_count = len(file_list)
-    if '.DS_Store' in file_list:
-        dataset_idx = file_count - 1
-    else:
-        dataset_idx = file_count
-    
-    # File index
-    print('Continue saving files from previous log? Current initial index is {} - y/n'.format(dataset_idx))
-    cmd = input()
-    if cmd == 'y':
-        pass
-    elif cmd == 'n':
-        print('Type initial file index: ', end="")
-        dataset_idx = int(input())
-        print('File index start from {}'.format(dataset_idx))
-
-        
-    # Initialize Dynamixel Connection
+    ## Initialize Dynamixel Connection
     os.system("sudo chmod 666 /dev/ttyUSB0")
     dxlDrive = DynamixelDriver()
-    dxl_yaw_tar_spd = dxlDrive.dxl_degPs2dxlIn(yaw_spd)
-    dxl_pit_tar_spd = dxlDrive.dxl_degPs2dxlIn(pit_spd)
 
-    # Initialize iLidar Connection
-    ilidar = iLidarDriver()
 
     ##################################################################
     ## Start moving
@@ -124,166 +119,227 @@ def main():
     #
     ##################################################################
     img_num = 0
-    print('+=================================================+')
-    print('|=             MB Dataset Collecter              =|')
-    print('|=================================================|')
-    print('+  Num  + Yaw + Pit + Mode +       State          |')
-    print('| {img_num:^2}/{img_total:^2} | {Yaw:^3} | {Pit:^3} | {mode:^4} | {state:^20} |'\
-          .format(img_num=img_num+1, img_total=len(range(-20, 40, 20))*len(range(20, 160, 20)), Yaw=dxl_yaw_tar_deg, Pit=dxl_pit_tar_deg, mode="", state=' '), end="")
-    dxl_pit_tar_deg = 0
-    dxl_yaw_tar_deg = 0
-    #### Get MB Image
-    if 1:
-        capFin = 0
-        while 1:
-            # Sweep-Back Sensor
-            # Sweep back a little to ensure the LiDAR is at target angular velocity
-            if operation_mode == H:
-                dxl_pit_tar_stp, dxl_yaw_tar_stp = dxlDrive.dxl_deg2stp(dxl_pit_tar_deg, dxl_yaw_tar_deg - SWEEPBACK_YAW)
-            elif operation_mode == V:
-                dxl_pit_tar_stp, dxl_yaw_tar_stp = dxlDrive.dxl_deg2stp(dxl_pit_tar_deg - SWEEPBACK_PIT, dxl_yaw_tar_deg)
-            elif operation_mode == VH:
-                dxl_pit_tar_stp, dxl_yaw_tar_stp = dxlDrive.dxl_deg2stp(dxl_pit_tar_deg - SWEEPBACK_PIT, dxl_yaw_tar_deg - SWEEPBACK_YAW)
-            print('\r| {img_num:^2}/{img_total:^2} | {Yaw:^3} | {Pit:^3} | {mode:^4} | {state:^20} |'\
-                  .format(img_num=img_num+1, img_total=len(range(-20, 40, 20))*len(range(20, 160, 20)), Yaw=dxl_yaw_tar_deg, Pit=dxl_pit_tar_deg, mode='MB', state='GoTo SweepBack'), end="")
-            dxlDrive.dxl_set_pos(DXL_YAW_ID, dxl_yaw_tar_stp, 0)
-            dxlDrive.dxl_set_pos(DXL_PIT_ID, dxl_pit_tar_stp, 0)
-            while 1:
-                tmp_pit_cur_pos_stp, tmp_yaw_cur_pos_stp = dxlDrive.dxl_multi_get_pos()
-                # Reached Target Position - Sweep-Back angle
-                if (abs(tmp_pit_cur_pos_stp - dxl_pit_tar_stp) < 8) and (abs(tmp_yaw_cur_pos_stp - dxl_yaw_tar_stp) < 8):
-                    # print("Reached Sweep-Back Position")
-                    break
-            print('\r| {img_num:^2}/{img_total:^2} | {Yaw:^3} | {Pit:^3} | {mode:^4} | {state:^20} |'\
-                  .format(img_num=img_num+1, img_total=len(range(-20, 40, 20))*len(range(20, 160, 20)), Yaw=dxl_yaw_tar_deg, Pit=dxl_pit_tar_deg, mode='MB', state='SweepBack Fin'), end="")
+    dxl_pan_tar_deg = 90
+    dxl_tlt_tar_deg = -90
+    print('+=======================================================+')
+    print('|=                MB Dataset Collecter                 =|')
+    print('|=======================================================|')
+    print('+  Num   + Pan rate + Tilt rate +        State          |',end="")
+    for pan_vel_tar in range(ANG_VEL_MIN, ANG_VEL_MAX, ANG_VEL_INT):
+        for tlt_vel_tar in range(ANG_VEL_MIN, ANG_VEL_MAX, ANG_VEL_INT):
+
+            #### Print status on terminal
+            print('\n| {img_idx:^2}/{img_total:^3} | {Pan:^3}deg/s | {Tilt:^3}deg/s  | {state:^20}  |'\
+                .format(img_idx=img_num+1, img_total=len(range(ANG_VEL_MIN, ANG_VEL_MAX, ANG_VEL_INT))**2, Pan=pan_vel_tar, Tilt=tlt_vel_tar, state=' '), end="")
             
-            # Go to target position, and take image when it reaches the position
-            dxl_pit_shutter_stp, dxl_yaw_shutter_stp = dxlDrive.dxl_deg2stp(dxl_pit_tar_deg, dxl_yaw_tar_deg)
-            if operation_mode == H:
-                dxl_pit_tar_stp, dxl_yaw_tar_stp = dxlDrive.dxl_deg2stp(dxl_pit_tar_deg, dxl_yaw_tar_deg + SWEEPBACK_YAW)
-            elif operation_mode == V:
-                dxl_pit_tar_stp, dxl_yaw_tar_stp = dxlDrive.dxl_deg2stp(dxl_pit_tar_deg + SWEEPBACK_PIT, dxl_yaw_tar_deg)
-            elif operation_mode == VH:
-                dxl_pit_tar_stp, dxl_yaw_tar_stp = dxlDrive.dxl_deg2stp(dxl_pit_tar_deg + SWEEPBACK_PIT, dxl_yaw_tar_deg + SWEEPBACK_YAW)
-            dxlDrive.dxl_set_pos(DXL_YAW_ID, dxl_yaw_tar_stp, dxl_yaw_tar_spd)
-            dxlDrive.dxl_set_pos(DXL_PIT_ID, dxl_pit_tar_stp, dxl_pit_tar_spd)
 
-            # Reached Target Position - Sweep-Back angle
-            while 1:
-                dxl_pit_cur_stp, dxl_yaw_cur_stp = dxlDrive.dxl_multi_get_pos()
-                if (abs(dxl_pit_cur_stp - dxl_pit_shutter_stp) < 8) or (abs(dxl_yaw_cur_stp - dxl_yaw_shutter_stp) < 8):
-                    img_depth, img_inten, width, height, isFail = ilidar.iLidar_getImg()
-                    # Image is not received - Rewind and Get Image Again
-                    if isFail != 0:
-                        print('\r| {img_num:^2}/{img_total:^2} | {Yaw:^3} | {Pit:^3} | {mode:^4} | {state:^20} |'.format(img_num=img_num+1, img_total=len(range(-20, 40, 20))*len(range(20, 160, 20)), Yaw=dxl_yaw_tar_deg, Pit=dxl_pit_tar_deg, mode='MB', state='ImgGet Fail'), end="")
+            #### Get MB Image
+            if 1:
+                captureFinished = 0
+                while 1:
+
+                    #### Sweep-Back Sensor - Sweep back a little to ensure the LiDAR is at target angular velocity
+                    ## Print status on terminal
+                    print('\r| {img_idx:^2}/{img_total:^3} | {Pan:^3}deg/s | {Tilt:^3}deg/s  | {state:^20}  |'\
+                        .format(img_idx=img_num+1, img_total=len(range(ANG_VEL_MIN, ANG_VEL_MAX, ANG_VEL_INT))**2,\
+                                 Pan=pan_vel_tar, Tilt=tlt_vel_tar, state='GoTo SweepBack'), end="")
                     
-                    # Get Image Success
+                    ## Sweep back direction
+                    if pan_vel_tar > 0:
+                        SWEEPBACK_PAN   = 20
+                    elif pan_vel_tar < 0:
+                        SWEEPBACK_PAN   = -20
                     else:
-                        depth = np.ndarray.tolist(img_depth)
-                        inten = np.ndarray.tolist(img_inten)
+                        SWEEPBACK_PAN = 0
+                    if tlt_vel_tar > 0:
+                        SWEEPBACK_TLT   = 20
+                    elif tlt_vel_tar < 0:
+                        SWEEPBACK_TLT   = -20
+                    else:
+                        SWEEPBACK_TLT = 0
+                    
+                    ## Go to sweep back position
+                    dxl_tlt_tar_stp, dxl_pan_tar_stp = dxlDrive.dxl_deg2stp(dxl_tlt_tar_deg - SWEEPBACK_TLT, dxl_pan_tar_deg - SWEEPBACK_PAN)
+                    dxlDrive.dxl_set_pos(DXL_PAN_ID, dxl_pan_tar_stp, 0)
+                    dxlDrive.dxl_set_pos(DXL_TLT_ID, dxl_tlt_tar_stp, 0)
+                    while 1:
+                        ## Read current position (in step)
+                        tmp_tlt_cur_pos_stp, tmp_pan_cur_pos_stp = dxlDrive.dxl_multi_get_pos()
 
-                        # Get angular velocity
-                        pose["dp"], pose["dyw"] = dxlDrive.dxl_multi_get_spd()
-                        print('\r| {img_num:^2}/{img_total:^2} | {Yaw:^3} | {Pit:^3} | {mode:^4} | {state:^20} |'.format(img_num=img_num+1, img_total=len(range(-20, 40, 20))*len(range(20, 160, 20)), Yaw=dxl_yaw_tar_deg, Pit=dxl_pit_tar_deg, mode='MB', state='Image Received!'))
+                        ## Escape while when reached target position
+                        if (abs(tmp_tlt_cur_pos_stp - dxl_tlt_tar_stp) < 8) and (abs(tmp_pan_cur_pos_stp - dxl_pan_tar_stp) < 8):
+                            print('\r| {img_idx:^2}/{img_total:^3} | {Pan:^3}deg/s | {Tilt:^3}deg/s  | {state:^20}  |'\
+                                .format(img_idx=img_num+1, img_total=len(range(ANG_VEL_MIN, ANG_VEL_MAX, ANG_VEL_INT))**2, \
+                                        Pan=pan_vel_tar, Tilt=tlt_vel_tar, state='SweepBack Fin'), end="")
+                            break
+                    
+                    
+                    #### Go to target position + sweep back angle. Take image when reached target position.
+                    ## Deg/s to dynamixel speed
+                    dxl_tlt_vel_tar = dxlDrive.dxl_degPs2dxlIn(tlt_vel_tar)
+                    dxl_pan_vel_tar = dxlDrive.dxl_degPs2dxlIn(pan_vel_tar)
 
-                        # Pose/position label
-                        pose["dx"] = 0  # Translation velocity vector
-                        pose["dz"] = 0
-                        pose["dy"] = 0
-                        pose["r"] = 0   # Pose angle
-                        pose["p"], pose["yw"] = dxlDrive.dxl_stp2deg(dxl_pit_cur_stp, dxl_yaw_cur_stp)
-                        # pose["p"], pose["yw"] = dxlDrive.dxl_stp2deg(dxl_pit_shutter_stp, dxl_yaw_shutter_stp)
-                        pose["dr"] = 0  # Pose angular velocity vector
+                    ## Set target position, where image is sampled
+                    dxl_tlt_shutter_stp, dxl_pan_shutter_stp = dxlDrive.dxl_deg2stp(dxl_tlt_tar_deg, dxl_pan_tar_deg)
+
+                    ## Set final position. (target positon + sweep back)
+                    dxl_tlt_tar_stp, dxl_pan_tar_stp = dxlDrive.dxl_deg2stp(dxl_tlt_tar_deg + SWEEPBACK_TLT, dxl_pan_tar_deg + SWEEPBACK_PAN)
+                    
+                    ## Go to final position
+                    dxlDrive.dxl_set_pos(DXL_TLT_ID, dxl_tlt_tar_stp, dxl_tlt_vel_tar)
+                    dxlDrive.dxl_set_pos(DXL_PAN_ID, dxl_pan_tar_stp, dxl_pan_vel_tar)
+                    while 1:
+                        ## Read current position (in step)
+                        dxl_tlt_cur_stp, dxl_pan_cur_stp = dxlDrive.dxl_multi_get_pos()
+
+                        ## Take image while when reached target position
+                        if (abs(dxl_tlt_cur_stp - dxl_tlt_shutter_stp) < 8) or (abs(dxl_pan_cur_stp - dxl_pan_shutter_stp) < 8):
+                            
+                            ## Take DCS Image
+                            # dcs, isFail = ilidar.iLidar_getImg()
+                            k1 = np.zeros((320,160))
+                            k2 = np.zeros((320,160))
+                            k3 = np.zeros((320,160))
+                            k4 = np.zeros((320,160))
+                            dcs=[k1,k2,k3,k4]
+                            isFail = 0
+
+                            ## Image is not received - Rewind and Get Image Again
+                            if isFail != 0:
+                                print('\r| {img_idx:^2}/{img_total:^3} | {Pan:^3}deg/s | {Tilt:^3}deg/s  | {state:^20}  |'\
+                                    .format(img_idx=img_num+1, img_total=len(range(ANG_VEL_MIN, ANG_VEL_MAX, ANG_VEL_INT))**2, \
+                                        Pan=pan_vel_tar, Tilt=tlt_vel_tar, state='ImgGet Fail'), end="")
+                                
+                            ## Get Image Success
+                            else:
+                                ## Pose/position label
+                                # Angular velocity vector
+                                pose["dt"], pose["dp"] = dxlDrive.dxl_multi_get_spd_rev2()
+                                pose["dr"] = 0
+                                # Translation velocity vector
+                                pose["dx"] = 0  
+                                pose["dy"] = 0
+                                pose["dz"] = 0
+
+                                ## Image Data
+                                dcs0 = np.ndarray.tolist(dcs[0])
+                                dcs1 = np.ndarray.tolist(dcs[1])
+                                dcs2 = np.ndarray.tolist(dcs[2])
+                                dcs3 = np.ndarray.tolist(dcs[3])
+
+                                ## Print status on terminal
+                                print('\r| {img_idx:^2}/{img_total:^3} | {Pan:^3}deg/s | {Tilt:^3}deg/s  | {state:^20}  |'\
+                                    .format(img_idx=img_num+1, img_total=len(range(ANG_VEL_MIN, ANG_VEL_MAX, ANG_VEL_INT))**2, \
+                                        Pan=pan_vel_tar, Tilt=tlt_vel_tar, state='Image Received!'), end="")
+                                
+                                ## Save
+                                file_path = path + '/tmp/img_' + str(dataset_idx) + '.json'  
+                                DatasetIO.JSON_write(file_path, WIDTH, HEIGHT, pose, dcs0, dcs1, dcs2, dcs3, information)
+                                captureFinished = 1
+                            break
                         
-                        # Save
-                        if operation_mode == V:
-                            file_path = path + '/V/MB/V_MB_' + str(dataset_idx) + '.json'
-                        elif operation_mode == H:
-                            file_path = path + '/H/MB/H_MB_' + str(dataset_idx) + '.json'
-                        elif operation_mode == VH:
-                            file_path = path + '/VH/MB/VH_MB_' + str(dataset_idx) + '.json'  
-                        DatasetIO.JSON_write(file_path, width, height, pose, depth, inten, information)
-                        capFin = 1
-                    break
-                elif (abs(dxl_pit_cur_stp - dxl_pit_tar_stp) < 8) and (abs(dxl_yaw_cur_stp - dxl_yaw_tar_stp) < 8):
-                    break
+                        ## Escape while when reached target position
+                        elif (abs(dxl_tlt_cur_stp - dxl_tlt_tar_stp) < 8) and (abs(dxl_pan_cur_stp - dxl_pan_tar_stp) < 8):
+                            break
 
-            if capFin == 1:
-                break
-    # Show img
-    if 1:
-        plt.imshow(depth, cmap='gray')
-        plt.xlabel('MB - Depth')
-        plt.show(block=False)
-        plt.pause(0.5)
-        plt.close()
+                    if captureFinished == 1:
+                        break
 
-    
-    #### Get GT Image
-    if 1:
-        print('| {img_num:^2}/{img_total:^2} | {Yaw:^3} | {Pit:^3} | {mode:^4} | {state:^20} |'.format(img_num=img_num+1, img_total=len(range(-20, 40, 20))*len(range(20, 160, 20)), Yaw=dxl_yaw_tar_deg, Pit=dxl_pit_tar_deg, mode='GT', state=''), end="")
-        # Set Target Angle
-        dxl_pit_tar_stp = dxl_pit_cur_stp
-        dxl_yaw_tar_stp = dxl_yaw_cur_stp
-        # dxl_pit_tar_stp = dxl_pit_shutter_stp
-        # dxl_yaw_tar_stp = dxl_yaw_shutter_stp
-        print('\r| {img_num:^2}/{img_total:^2} | {Yaw:^3} | {Pit:^3} | {mode:^4} | {state:^20} |'.format(img_num=img_num+1, img_total=len(range(-20, 40, 20))*len(range(20, 160, 20)), Yaw=dxl_yaw_tar_deg, Pit=dxl_pit_tar_deg, mode='GT', state='GoTo SweepBack'), end="")
-        dxlDrive.dxl_set_pos(DXL_YAW_ID, dxl_yaw_tar_stp, 0)
-        dxlDrive.dxl_set_pos(DXL_PIT_ID, dxl_pit_tar_stp, 0)
-        
-        while 1:
-            # If Current position/pose is target position/pose, send shutter command
-            dxl_pit_cur_stp, dxl_yaw_cur_stp = dxlDrive.dxl_multi_get_pos()
-            if (abs(dxl_pit_cur_stp - dxl_pit_tar_stp) < 10) and (abs(dxl_yaw_cur_stp - dxl_yaw_tar_stp) < 10):
-                print('\r| {img_num:^2}/{img_total:^2} | {Yaw:^3} | {Pit:^3} | {mode:^4} | {state:^20} |'.format(img_num=img_num+1, img_total=len(range(-20, 40, 20))*len(range(20, 160, 20)), Yaw=dxl_yaw_tar_deg, Pit=dxl_pit_tar_deg, mode='GT', state='TarPos Fin'), end="")
-                time.sleep(0.5)
+            ## Goto origin
+            dxl_tlt_tar_stp, dxl_pan_tar_stp = dxlDrive.dxl_deg2stp(-90, 90)
+            dxlDrive.dxl_set_pos(DXL_PAN_ID, dxl_pan_tar_stp, 0)
+            dxlDrive.dxl_set_pos(DXL_TLT_ID, dxl_tlt_tar_stp, 0)
 
-                # Get Image
-                img_depth, img_inten, width, height, isFail = ilidar.iLidar_getImg()
-                while isFail != 0:
-                    print('\r| {img_num:^2}/{img_total:^2} | {Yaw:^3} | {Pit:^3} | {mode:^4} | {state:^20} |'.format(img_num=img_num+1, img_total=len(range(-20, 40, 20))*len(range(20, 160, 20)), Yaw=dxl_yaw_tar_deg, Pit=dxl_pit_tar_deg, mode='GT', state='ImgGet Fail'), end="")
-                    img_depth, img_inten, width, height, isFail = ilidar.iLidar_getImg()
-                print('\r| {img_num:^2}/{img_total:^2} | {Yaw:^3} | {Pit:^3} | {mode:^4} | {state:^20} |'.format(img_num=img_num+1, img_total=len(range(-20, 40, 20))*len(range(20, 160, 20)), Yaw=dxl_yaw_tar_deg, Pit=dxl_pit_tar_deg, mode='GT', state='Image Received!'))
+            # Show img
+            if 0:
+                show_img(dcs, 1)
+
+            
+            #### Get GT Image
+            if 0:
+                print('| {img_idx:^2}/{img_total:^3} | {Pan:^3}deg/s | {Tilt:^3}deg/s  | {state:^20}  |'\
+                    .format(img_idx=img_num+1, img_total=len(range(ANG_VEL_MIN, ANG_VEL_MAX, ANG_VEL_INT))**2, \
+                            Pan=pan_vel_tar, Tilt=tlt_vel_tar, state='GT!'), end="")
+                # Set Target Angle
+                dxl_pit_tar_stp = dxl_tlt_cur_stp
+                dxl_yaw_tar_stp = dxl_pan_cur_stp
+                print('\r| {img_idx:^2}/{img_total:^3} | {Pan:^3}deg/s | {Tilt:^3}deg/s  | {state:^20}  |'\
+                        .format(img_idx=img_num+1, img_total=len(range(ANG_VEL_MIN, ANG_VEL_MAX, ANG_VEL_INT))**2,\
+                                 Pan=pan_vel_tar, Tilt=tlt_vel_tar, state='GoTo TarPos'), end="")
+                dxlDrive.dxl_set_pos(DXL_PAN_ID, dxl_yaw_tar_stp, 0)
+                dxlDrive.dxl_set_pos(DXL_TLT_ID, dxl_pit_tar_stp, 0)
                 
-                # Pose/position label
-                pose["dx"] = 0  # Translation velocity vector
-                pose["dy"] = 0
-                pose["dz"] = 0
-                pose["r"] = 0   # Pose angle
-                # pose["p"] = dxl_pit_tar_deg
-                # pose["yw"] = dxl_yaw_tar_deg
-                pose["p"], pose["yw"] = dxlDrive.dxl_stp2deg(dxl_pit_tar_stp, dxl_yaw_tar_stp)
-                pose["dr"] = 0  # Pose angular velocity vector
-                pose["dp"] = 0
-                pose["dyw"] = 0
+                while 1:
+                    # If Current position/pose is target position/pose, send shutter command
+                    dxl_tlt_cur_stp, dxl_pan_cur_stp = dxlDrive.dxl_multi_get_pos()
+                    if (abs(dxl_tlt_cur_stp - dxl_tlt_tar_stp) < 8) and (abs(dxl_pan_cur_stp - dxl_pan_tar_stp) < 8):
+                        print('\r| {img_idx:^2}/{img_total:^3} | {Pan:^3}deg/s | {Tilt:^3}deg/s  | {state:^20}  |'\
+                            .format(img_idx=img_num+1, img_total=len(range(ANG_VEL_MIN, ANG_VEL_MAX, ANG_VEL_INT))**2, \
+                                    Pan=pan_vel_tar, Tilt=tlt_vel_tar, state='TarPos Fin'), end="")
+                        time.sleep(0.5)
 
-                depth = np.ndarray.tolist(img_depth)
-                inten = np.ndarray.tolist(img_inten)
+                        ## Take DCS Image
+                        # dcs, isFail = ilidar.iLidar_getImg()
+                        isFail = 0
+                        ## Image is not received - Rewind and Get Image Again
+                        while isFail != 0:
+                            print('\r| {img_idx:^2}/{img_total:^3} | {Pan:^3}deg/s | {Tilt:^3}deg/s  | {state:^20}  |'\
+                                .format(img_idx=img_num+1, img_total=len(range(ANG_VEL_MIN, ANG_VEL_MAX, ANG_VEL_INT))**2, \
+                                    Pan=pan_vel_tar, Tilt=tlt_vel_tar, state='ImgGet Fail'), end="")
+                            # dcs, isFail = ilidar.iLidar_getImg()
+                            isFail = 0
+                        print('\r| {img_idx:^2}/{img_total:^3} | {Pan:^3}deg/s | {Tilt:^3}deg/s  | {state:^20}  |'\
+                            .format(img_idx=img_num+1, img_total=len(range(ANG_VEL_MIN, ANG_VEL_MAX, ANG_VEL_INT))**2, \
+                                    Pan=pan_vel_tar, Tilt=tlt_vel_tar, state='Image Received!'), end="")
+
+                        ## Pose/position label
+                        # Angular velocity vector
+                        pose["dt"], pose["dp"] = dxlDrive.dxl_multi_get_spd()
+                        pose["dr"] = 0
+                        # Translation velocity vector
+                        pose["dx"] = 0  
+                        pose["dy"] = 0
+                        pose["dz"] = 0
+
+                        ## Image Data
+                        dcs0 = np.ndarray.tolist(dcs[0])
+                        dcs1 = np.ndarray.tolist(dcs[1])
+                        dcs2 = np.ndarray.tolist(dcs[2])
+                        dcs3 = np.ndarray.tolist(dcs[3])
+                        
+                        ## Save
+                        file_path = path + '/tmp/gt_img_' + str(dataset_idx) + '.json'  
+                        DatasetIO.JSON_write(file_path, WIDTH, HEIGHT, pose, dcs0, dcs1, dcs2, dcs3, information)
+                        break
                 
-                # Save
-                if operation_mode == V:
-                    file_path = path + '/V/GT/V_GT_' + str(dataset_idx) + '.json'
-                elif operation_mode == H:
-                    file_path = path + '/H/GT/H_GT_' + str(dataset_idx) + '.json'
-                elif operation_mode == VH:
-                    file_path = path + '/VH/GT/VH_GT_' + str(dataset_idx) + '.json'    
-                DatasetIO.JSON_write(file_path, width, height, pose, depth, inten, information)
-                break
-    # Show img
-    if 1:
-        plt.imshow(depth, cmap='gray')
-        plt.xlabel('GT - Depth')
-        plt.show(block=False)
-        plt.pause(0.5)
-        plt.close()
-    
-    # Display
-    dataset_idx = dataset_idx + 1
-    img_num += 1  
-    
+            # Show img
+            if 0:
+                show_img(dcs, 1)
+            
+            # Display
+            dataset_idx += 1
+            img_num += 1  
+            
     # Save file to USB
     # usb_get()
 
+    ## Finished!
+    print('\n+=======================================================+')
+    print('|=                     Finished!                       =|')
+    print('|=======================================================|')
+
+
+def show_img(dcs, show_period=0):
+    x = dcs[2] - dcs[0]
+    y = dcs[3] - dcs[1]
+    intensity = np.sqrt((x/20)**2 + (y/20)**2)
+
+    plt.imshow(intensity, cmap='gray')
+    plt.xlabel('Intensity')
+    plt.show(block=False)
+    if show_period != 0:
+        plt.pause(show_period)
+    plt.close()
 
 
 def usb_get():
