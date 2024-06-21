@@ -3,15 +3,31 @@
 # Author: Youngbin Son, Jiho Ryoo
 # Date: 2024.06.19
 # Description: DCS Image logging driver
-#               Triggering LiDAR is removed, and receiving time stamp of sampling time is added.
-#               Sensor @ 192.168.5.x
-#               Host @ 192.168.5.2
-# 
+#              Triggering LiDAR is removed, and receiving time stamp of sampling time is added.
+#              Sensor @ 192.168.5.x
+#              Host   @ 192.168.5.2
+#
+# EXP mode data packet structure [1302 B] 
+# - STX	                                                [ 2 B] 	(0)
+# - Packet ID (0x0001)									[ 2 B]	(1)
+# - Packet length (1302)								[ 2 B]	(2)
+# - timestamp_us (64 bit)								[ 8 B]	(3~6)
+# - empty (6 bit)  | modfreq (10 bit)					[ 2 B]	(7)
+# - DCSnum (2 bit) | empty (4 bit) | shutter (10 bit)	[ 2 B]	(8)
+# - empty (2 bit)  | frame (6 bit) | row (8 bit)		[ 2 B]	(9)
+# - DATA												[640 x 2 = 1280 B]	(10~649)
+# - ETX													[ 2 B]	(650)
+#
 ##################################################################
 # iLidar-ToF data retrieval via UDP
 import socket	# for data retrieval
 import struct	# for bytes -> int conversion
 import numpy as np
+import time
+
+# If main is executed, run the following code
+# from matplotlib import pyplot as plt
+# import cv2
 
 class iLidarDriver():
     def __init__(self):
@@ -19,17 +35,22 @@ class iLidarDriver():
         # Image information
         self.img_width   = 320
         self.img_height  = 160
-        # self.img_height  = 128
         self.packet_size = 1302
         self.row_unpack_format = '<' + 'H' * self.img_width # '<': little endian, 'H': unsigned short
         
         # UDP connection
         self.ip_host   = '192.168.5.2'
-        self.ip_sensor = '192.168.5.51'
+        self.ip_sensor = '192.168.5.73'
         self.port_dat_host = 7256
         self.port_cmd_host = 7257
         self.port_cmd_snsr = 4906
         self.data_size = 2000
+
+        self.MOD_FREQ = 0x07FF
+        self.DCS_NUM  = 0xC000
+        self.SHUTTER  = 0x07FF
+        self.FRAME    = 0x3F00
+        self.ROW      = 0x00FF
 
         #### Initialization
         # Create data socket
@@ -67,7 +88,7 @@ class iLidarDriver():
         dcs1 = np.zeros((self.img_height, self.img_width), dtype=np.uint16)
         dcs2 = np.zeros((self.img_height, self.img_width), dtype=np.uint16)
         dcs3 = np.zeros((self.img_height, self.img_width), dtype=np.uint16)
-        dcs = [dcs0, dcs1, dcs2, dcs3]
+        dcs  = [dcs0, dcs1, dcs2, dcs3]
 
         lv = np.array([0, 1, 2, 2, 3, 3, 3, 3])
 
@@ -83,10 +104,10 @@ class iLidarDriver():
             except:
                 # Connection Error
                 if isFailFlg == 0:
-                    return dcs, self.img_width, self.img_height, 1
+                    return dcs, 1
                 # Not enough packet is received
                 else:
-                    return dcs, self.img_width, self.img_height, 1
+                    return dcs, 1
                 
             
             # If received packet is data packet, ignore
@@ -95,11 +116,46 @@ class iLidarDriver():
             
             # If received packet is image packet,
             if len(data) == self.packet_size:
-                # Application: draw a single full frame ###################################################
-                # Row # [1B] is at buffer+0 [B]
-                # Frame # [1B] is at buffer+1 [B]
-                cur_row   = struct.unpack('<B', data[0:1])[0]
+                ## Information packet
+                stx, packet_id, packet_length, timestamp_us, modfreq_shutter, frame_row, dcsnum_empty, data_payload, etx = \
+                    struct.unpack('<2s2sH8s2s2s2s1280s2s', data)
+                packet_id = struct.unpack('<H', packet_id)[0]
+                timestamp_us = struct.unpack('<Q', timestamp_us)[0]
+                modfreq = struct.unpack('<H', modfreq_shutter)[0] & self.MOD_FREQ
+                dcs_num = (struct.unpack('<H', dcsnum_empty)[0] & self.DCS_NUM) >> 14
+                shutter = struct.unpack('<H', modfreq_shutter)[0] & self.SHUTTER
+                frame = (struct.unpack('<H', frame_row)[0] & self.FRAME) >> 8
+                cur_row = struct.unpack('<B', frame_row[1:2])[0]
 
+                print("dcs_num: {dcs_num}, frame: {frame}, cur_row: {cur_row}, timestamp: {timestamp_us}".\
+                      format(dcs_num=dcs_num, frame=frame, cur_row=cur_row, timestamp_us=timestamp_us))
+                break
+
+
+                # EXP mode data packet structure [1302 B] 
+                # - STX	                                                [ 2 B] 	(0)
+                # - Packet ID (0x0001)									[ 2 B]	(1)
+                # - Packet length (1302)								[ 2 B]	(2)
+                # - timestamp_us (64 bit)								[ 8 B]	(3~6)
+                # - empty (6 bit)  | modfreq (10 bit)					[ 2 B]	(7)
+                # - DCSnum (2 bit) | empty (4 bit) | shutter (10 bit)	[ 2 B]	(8)
+                # - empty (2 bit)  | frame (6 bit) | row (8 bit)		[ 2 B]	(9)
+                # - DATA												[640 x 2 = 1280 B]	(10~649)
+                # - ETX													[ 2 B]	(650)
+
+                ## DCS0
+
+
+                ## DCS1
+
+
+                ## DCS2
+
+
+                ## DCS3
+
+
+                """
                 # Depth
                 if cur_row < self.img_height:
                     for y in range(0, 2):
@@ -118,6 +174,7 @@ class iLidarDriver():
                         imgInten[cur_row-self.img_height + y, :] = pixels_row
                     
 
+                # Error Handling
                 if cur_row == self.img_height*2 - 2:
                     # Validate Image - check pixel with 0 value
                     # Depth
@@ -130,6 +187,16 @@ class iLidarDriver():
                     if zero_cnt_inten.size > 900:
                         # print('Fail - Bad image')
                         failFlg = 2
-                    
-                    return dcs, self.img_width, self.img_height, failFlg
 
+                    """
+                    
+        return dcs, failFlg
+
+
+if __name__ == '__main__':
+    ilidar = iLidarDriver()
+    dcs, failFlg = ilidar.iLidar_getImg()
+    time.sleep(1)
+    dcs, failFlg = ilidar.iLidar_getImg()
+    time.sleep(1)
+    dcs, failFlg = ilidar.iLidar_getImg()
