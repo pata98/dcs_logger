@@ -6,7 +6,7 @@
 # 
 ##################################################################
 import json
-import jsbeautifier
+# import jsbeautifier
 
 class DatasetIO(object):
     def __init__(self):
@@ -42,19 +42,19 @@ class DatasetIO(object):
         with open(file_path, 'w', encoding='utf-8') as file:
             json.dump(img, file, indent="\t")
 
-    def JSON_beauty(self, file_path):
-        data_json = self.JSON_read(file_path)
+    # def JSON_beauty(self, file_path):
+    #     data_json = self.JSON_read(file_path)
         
-        # Beautify
-        options = jsbeautifier.default_options()
-        options.indent_size = 4
-        options.max_preserve_newlines = 1
-        options.end_with_newline = True
-        options.wrap_line_length = -1
-        options.break_chained_methods = True
+    #     # Beautify
+    #     options = jsbeautifier.default_options()
+    #     options.indent_size = 4
+    #     options.max_preserve_newlines = 1
+    #     options.end_with_newline = True
+    #     options.wrap_line_length = -1
+    #     options.break_chained_methods = True
 
-        with open(file_path, 'w') as out_json_file:
-            out_json_file.write(jsbeautifier.beautify(json.dumps(data_json, sort_keys=False), options))
+    #     with open(file_path, 'w') as out_json_file:
+    #         out_json_file.write(jsbeautifier.beautify(json.dumps(data_json, sort_keys=False), options))
 
-        out_json_file.close()
+    #     out_json_file.close()
 

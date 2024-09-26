@@ -1,10 +1,10 @@
-from smbus2 import smbus2
+import smbus
 import time
 from package.mpu9250.mpu9250_resigter import *
 
 class MPU9250():
     def __init__(self):
-        self.i2c_bus = smbus2.SMBus(1)
+        self.i2c_bus = smbus.SMBus(1)
     
     """
     Functions for MPU9250
