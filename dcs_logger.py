@@ -99,15 +99,14 @@ def main():
 
 
     ##################################################################
-    ## Start moving
-    # Auto Data Aquisition Mode
+    # ** Auto Data Aquisition Mode **
     # Dataset Aquisition Sequence:
-    # 1. Goto target position
-    # 2. Get GT image at target position
-    # 3. Get MB image at target position
-    # 3.1 Sweep back from target angle
-    # 3.2 Move with assigned angular velocity
-    # 3.3 Get image when target position is reached
+    # 1. Sweep back from target view. The amount of sweep back angel
+    #       is determined adaptively; target_velocity * SWEEPBACK_TIME,
+    #       where SWEEPBACK_TIME is a parameter that can be modified.
+    # 2. Goto sampling position with the assigned angular velocity
+    # 3. Get image when target position is reached
+    # 4. Repeat for set velocities
     #
     ##################################################################
     img_num = 0
