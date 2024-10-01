@@ -52,8 +52,8 @@ class MotorDriver:
         self.bus = can.interface.Bus(bustype=bustype, channel=channel, bitrate=bitrate)
     
     def __del__(self):
-        self.motor_off(driver.ID_MOTOR_PAN)
-        self.motor_off(driver.ID_MOTOR_TILT)
+        self.motor_off(self.ID_MOTOR_PAN)
+        self.motor_off(self.ID_MOTOR_TILT)
 
     #### CAN Message ###############################################################
     def _build_message(self, command, payload=None):
@@ -266,10 +266,14 @@ if __name__ == "__main__":
     motor_status = driver.motor_on(driver.ID_MOTOR_PAN)
     motor_status = driver.motor_on(driver.ID_MOTOR_TILT)
 
-    print("=============== Move Motor ===============")
-    print("Move PAN Motor to 10")
-    target_angle = 0
-    motor_status = driver.motor_move(driver.ID_MOTOR_PAN, target_angle, 20, stay=True)
+    driver.motor_zeroing(driver.ID_MOTOR_PAN)
+    driver.motor_zeroing(driver.ID_MOTOR_TILT)
+    
+
+    # print("=============== Move Motor ===============")
+    # print("Move PAN Motor to 10")
+    # target_angle = 0
+    # motor_status = driver.motor_move(driver.ID_MOTOR_PAN, target_angle, 20, stay=True)
     
     # print("================== PID ===================")
     # print('Set PID I to 120')
