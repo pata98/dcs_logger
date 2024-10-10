@@ -1,12 +1,6 @@
-##################################################################
-# iLidar ToF Motion Blur DCS Dataset JSON file IO
-# Author: Jiho Ryoo
-# Date: 2024.06.19
-# Description: Save dataset as JSON file
-# 
-##################################################################
 import json
 import jsbeautifier
+import multiprocessing
 
 class DatasetIO(object):
     def __init__(self):
@@ -19,7 +13,7 @@ class DatasetIO(object):
         return data
 
     # Write new json file to
-    def JSON_write(file_path, width, height, pose, dcs0, dcs1, dcs2, dcs3, info): 
+    def JSON_write(self, file_path, width, height, pose, dcs0, dcs1, dcs2, dcs3, info): 
         image_dataset = dict()
 
         image_dataset["info"]   = info
@@ -35,7 +29,7 @@ class DatasetIO(object):
         with open(file_path, 'w', encoding='utf-8') as file:
             json.dump(image_dataset, file, indent="\t")
     
-    def JSON_write_single(file_path, img):
+    def JSON_write_single(self, file_path, img):
         image = dict()
         image["image"] = img
 
@@ -56,11 +50,29 @@ class DatasetIO(object):
         with open(file_path, 'w') as out_json_file:
             out_json_file.write(jsbeautifier.beautify(json.dumps(data_json, sort_keys=False), options))
 
-        out_json_file.close()
+# Function to beautify a single file, used by multiprocessing
+def beautify_file(file_path):
+    dataset = DatasetIO()
+    dataset.JSON_beauty(file_path)
+    print(f"Processed {file_path}")
 
+# Function to process multiple files in parallel
+def beautify_files(file_list, num_workers):
+    with multiprocessing.Pool(processes=num_workers) as pool:
+        pool.map(beautify_file, file_list)
 
 if __name__ == '__main__':
-    file_name = input("Enter file name to beautify: ")
-    dataset = DatasetIO()
+    MAX_WORKERS = multiprocessing.cpu_count()
+    file_path = '/home/pata/Documents/dcs_logger/dataset/tmp/img_'
 
-    dataset.JSON_beauty(file_name)
+    # File index input
+    start_index = int(input("Enter the start index: "))
+    end_index = int(input("Enter the end index: "))
+    
+    file_list = [file_path + str(i) + '.json' for i in range(start_index, end_index+1)]
+
+    print(f"Total {len(file_list)} images to process.")
+    num_workers = min(MAX_WORKERS, len(file_list))
+    print(f"{num_workers} CPUs are used")
+
+    beautify_files(file_list, num_workers)
